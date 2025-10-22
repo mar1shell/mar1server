@@ -5,26 +5,30 @@ const char *CRLF = "\r\n";
 const char *BODY_DELIM = "\r\n\r\n";
 
 
-// char *get_header_value(http_header **http_headers, char *name) {
-//     return NULL;
-// }
+char *get_header_value(http_header **http_headers, char *name) {
+    http_header **curr_header = http_headers;
+
+    while (*curr_header != NULL && (*curr_header)->name[0] != '\0') {
+        if (strcmp((*curr_header)->name, name) == 0) {
+            return curr_header;
+        }
+
+        curr_header++;
+    }
+
+    return NULL;
+}
 
 int validate_http_method(char *method) {
-    if (strcmp(method, "GET") == 0 ||
-        strcmp(method, "POST") == 0) {
-        return 0;
+    char *valid_methods[] = {"GET", "POST", "PUT", "DELETE", "HEAD", "OPTIONS", "PATCH", "TRACE", "CONNECT", NULL};
+
+    for (int i = 0; valid_methods[i] != NULL; i++) {
+        if (strcmp(method, valid_methods[i]) == 0) {
+            return 0;
+        }
     }
 
     return -1;
-}
-
-int validate_http_url(char *url) {
-    if (url == NULL || url[0] == '\0') {
-        return 0;
-    }
-
-    // TODO
-    return 0;
 }
 
 int validate_http_version(char *version) {
@@ -44,8 +48,8 @@ int validate_http_version(char *version) {
  * @return A pointer to the parsed body string.
  * @attention The returned body must be freed by the caller.
  */
-char * parse_http_body(char *raw_body, http_header **headers) {
-    if (raw_body == NULL || headers == NULL) {
+char * parse_http_body(char *raw_body) {
+    if (raw_body == NULL) {
         return NULL;
     }
 
@@ -128,20 +132,17 @@ http_request *parse_http_request(char *request) {
     parsed_request->url = strtok(NULL, " ");
     parsed_request->version = strtok(NULL, " ");
 
-    // TODO
-    // if (validate_http_method(parsed_request->method) != 0) {
+    if (validate_http_method(parsed_request->method) != 0) {
+        if (LOGGING) perror("Invalid HTTP method");
+        free(parsed_request);
+        return NULL;
+    }
 
-    // }
-
-    // // TODO
-    // if (validate_http_url(parsed_request->url) != 0) {
-
-    // }
-
-    // // TODO
-    // if (validate_http_version(parsed_request->version) != 0) {
-        
-    // }
+    if (validate_http_version(parsed_request->version) != 0) {
+        if (LOGGING) perror("Invalid HTTP version");
+        free(parsed_request);
+        return NULL;
+    }
 
     line = __strtok_r(NULL, CRLF, &state);
 
@@ -179,7 +180,13 @@ http_request *parse_http_request(char *request) {
     (*current_header)->value = "\0";
 
     // TODO
-    parsed_request->body = parse_http_body(body_delimiter + 5, parsed_request->http_headers);
+    parsed_request->body = parse_http_body(body_delimiter + 5);
+
+    http_header **host_header = get_header_value(parsed_request->http_headers, "Host");
+
+    if (host_header != NULL) {
+        printf(BLUE"Host header found: %s\n"RESET, (*host_header)->value);
+    }
 
     return parsed_request;
 }
