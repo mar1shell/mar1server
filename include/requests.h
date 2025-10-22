@@ -1,5 +1,5 @@
-#ifndef HTTP_H
-#define HTTP_H
+#ifndef REQUESTS_H
+#define REQUESTS_H
 
 #include <string.h>
 #include <stdio.h>
@@ -7,12 +7,9 @@
 
 #define MAX_HEADERS 20
 
-#define HTTP_HEADER_NAME_SIZE 50
-#define HTTP_HEADER_VALUE_SIZE 200
-
 typedef struct {
-    char name[HTTP_HEADER_NAME_SIZE];
-    char value[HTTP_HEADER_VALUE_SIZE];
+    char *name;
+    char *value;
 } http_header;
 
 #define METHOD_SIZE 10
@@ -21,24 +18,24 @@ typedef struct {
 #define STATUS_MESSAGE_SIZE 100
 
 typedef struct {
-    char method[METHOD_SIZE];
-    char url[URL_SIZE];
-    char version[VERSION_SIZE];
+    char *method;
+    char *url;
+    char *version;
     http_header **http_headers;
     char *body;
     int size;
 } http_request;
 
 typedef struct {
-    char version[VERSION_SIZE];
+    char *version;
     int status_code;
-    char status_message[STATUS_MESSAGE_SIZE];
+    char *status_message;
     http_header **http_headers;
     char *body;
     int size;
 } http_response;
 
 http_request *parse_http_request(char *request);
-int freeHttprequest(http_request *request);
+int free_http_request(http_request *request);
 
-#endif // HTTP_H
+#endif // REQUESTS_H

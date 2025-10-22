@@ -2,7 +2,7 @@
 #include "../include/helpers.h"
 #include "../include/helpers.h"
 #include "../include/server.h"
-#include "../include/http.h"
+#include "../include/requests.h"
 
 int main(int argc, char const *argv[]) {
     printWelcomeBanner();
@@ -18,7 +18,7 @@ int main(int argc, char const *argv[]) {
         port = extractPort((char *)argv[1]);
 
         if (port < 0) {
-            printf(RED"Invalid port number. Please provide a port between 1 and 65534.\n"RESET);
+            perror(RED"Invalid port number. Please provide a port between 1 and 65534.\n"RESET);
             return 1;
         }
     }
@@ -27,10 +27,11 @@ int main(int argc, char const *argv[]) {
     http_server *server = init_http_server(port);
 
     if (server == NULL) {
-        printf(RED"Failed to initialize server.\n"RESET);
+        perror(RED"Failed to initialize server.\n"RESET);
         return 1;
     }
 
+    // accept a client connection and receive data
     int client_socket = accept(server->socket, NULL, NULL);
 
     if (client_socket < 0) {
@@ -57,7 +58,8 @@ int main(int argc, char const *argv[]) {
     printf("______________________________________________________________\n");
 
     http_request *parsed_request = parse_http_request(request);
-
+    
+    printf("______________________________________________________________\n");
     printf("Method: %s\n", parsed_request->method);
     printf("URL: %s\n", parsed_request->url);
     printf("Version: %s\n", parsed_request->version);
@@ -68,6 +70,8 @@ int main(int argc, char const *argv[]) {
         printf("Header %s => %s\n", (*current_header)->name, (*current_header)->value);
         current_header++;
     }
+
+    printf("______________________________________________________________\n");
 
     char *response =
         "HTTP/1.1 200 OK\r\n"
@@ -80,13 +84,17 @@ int main(int argc, char const *argv[]) {
 
     if (bytes_sent < 0) {
         if (LOGGING) perror("error in send");
-    } else {
-        printf("Sent %d bytes:\n%s\n", bytes_sent, response);
+        close(client_socket);
+        close(server->socket);
+        free_http_request(parsed_request);
+        free(server);
     }
+        
+    printf("Sent %d bytes:\n%s\n", bytes_sent, response);
 
     close(client_socket);
     close(server->socket);
-    freeHttprequest(parsed_request);
+    free_http_request(parsed_request);
     free(server);
 
     return 0;

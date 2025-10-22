@@ -8,7 +8,6 @@
  * @return A pointer to the initialized http_server structure, or NULL on failure.
  * @attention Remember to free the allocated memory for http_server when done.
  */
-
 http_server *init_http_server(int port) {
     http_server *server = NULL;
 

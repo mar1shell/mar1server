@@ -67,7 +67,7 @@ clean:
 	# This removes the entire obj/ directory,
 	# which includes all .o (object) and .d (dependency) files
 	rm -rf $(OBJ_DIR)
-	rm -f $(TARGET)
+	rm -rf $(BIN_DIR)
 
 # Rule to run the server
 .PHONY: run
