@@ -24,17 +24,7 @@ typedef struct {
     char *version;
     http_header **http_headers;
     char *body;
-    int size;
 } http_request;
-
-typedef struct {
-    char *version;
-    int status_code;
-    char *status_message;
-    http_header **http_headers;
-    char *body;
-    int size;
-} http_response;
 
 http_request *parse_http_request(char *request);
 void print_request(http_request *parsed_request);
