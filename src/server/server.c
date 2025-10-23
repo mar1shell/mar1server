@@ -29,7 +29,13 @@ http_server *init_http_server(int port) {
 
     // Allow reuse of the address
     int opt = 1;
-    setsockopt(server->socket, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+    int result = setsockopt(server->socket, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+
+    if (result < 0) {
+        if (LOGGING) perror("problem in setsockopt (init_http_server)");
+        free(server);
+        return NULL;
+    }
 
     struct sockaddr_in server_address;
 
@@ -44,4 +50,16 @@ http_server *init_http_server(int port) {
     printf("Server listening on port " B_BLUE"%d\n"RESET, port);
 
     return server;
+}
+
+/**
+ * Accepts a client connection on the given socket.
+ * @param socket The server socket to accept connections on.
+ * @param socket_address Pointer to a sockaddr_in structure to store the client's address.
+ * @return The client socket descriptor, or -1 on failure.
+ */
+int accept_connection(int socket, struct sockaddr_in *socket_address) {
+    socklen_t client_address_len = sizeof(socket_address);
+
+    return accept(socket, (struct sockaddr *)socket_address, &client_address_len);
 }

@@ -4,7 +4,6 @@
 const char *CRLF = "\r\n";
 const char *BODY_DELIM = "\r\n\r\n";
 
-
 /**
  * Retrieves the value of a specific header from an array of HTTP headers.
  * @param http_headers The array of HTTP headers.
@@ -15,7 +14,7 @@ char *get_header_value(http_header **http_headers, char *name) {
     http_header **curr_header = http_headers;
 
     while (*curr_header != NULL && (*curr_header)->name[0] != '\0') {
-        if (strcmp((*curr_header)->name, name) == 0) {
+        if (strcasecmp((*curr_header)->name, name) == 0) {
             return (*curr_header)->value;
         }
 
@@ -71,7 +70,7 @@ char * parse_http_body(char *raw_body) {
         return NULL;
     }
 
-    return NULL;
+    return raw_body;
 }
 
 /**

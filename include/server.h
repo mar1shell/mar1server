@@ -16,5 +16,6 @@ typedef struct {
 } http_server;
 
 http_server *init_http_server(int port);
+int accept_connection(int socket, struct sockaddr_in *socket_address);
 
 #endif // SERVER_H

@@ -3,6 +3,8 @@
 #include "../include/helpers.h"
 #include "../include/server.h"
 #include "../include/requests.h"
+#include "../include/main.h"
+
 
 int main(int argc, char const *argv[]) {
     printWelcomeBanner();
@@ -31,70 +33,96 @@ int main(int argc, char const *argv[]) {
         return 1;
     }
 
-    // accept a client connection and receive data
-    int client_socket = accept(server->socket, NULL, NULL);
+    int client_socket;
+    struct sockaddr_in client_address;
 
-    if (client_socket < 0) {
-        if (LOGGING) perror("error in accept");
-        close(server->socket);
-        free(server);
-        return 1;
+    while (TRUE) {
+        // accept a client connection and receive data
+        client_socket = accept_connection(server->socket, &client_address);
+
+        if (client_socket < 0) {
+            if (LOGGING) perror("error in accept");
+            break;
+        }
+
+        pid_t pid = fork();
+
+
+        if (pid < 0) {
+            if (LOGGING) perror("error in fork");
+            close(client_socket);
+            continue;
+        }
+
+        if (pid == 0) {
+            char request[BUFSIZ];
+
+            int bytes_received = recv(client_socket, request, sizeof(request), 0);
+
+            if (bytes_received< 0) {
+                if (LOGGING) perror("error in recv");
+                close(client_socket);
+                close(server->socket);
+                free(server);
+                exit(1);
+            }
+
+            printf("______________________________________________________________\n");
+            printf("Received %d bytes:\n%s\n", bytes_received, request);
+            printf("______________________________________________________________\n");
+
+            http_request *parsed_request = parse_http_request(request);
+
+            printf("______________________________________________________________\n");
+            printf("Method: %s\n", parsed_request->method);
+            printf("URL: %s\n", parsed_request->url);
+            printf("Version: %s\n", parsed_request->version);
+
+            http_header **current_header = parsed_request->http_headers;
+
+            while (current_header != NULL && (*current_header)->name[0] != '\0') {
+                printf("Header %s => %s\n", (*current_header)->name, (*current_header)->value);
+                current_header++;
+            }
+
+            if (parsed_request->body != NULL) {
+                printf("Body: %s\n", parsed_request->body);
+            }
+
+            printf("______________________________________________________________\n");
+
+            char *response = "HTTP/1.1 200 OK\r\n"
+                             "Content-Type: text/plain\r\n"
+                             "Content-Length: 13\r\n"
+                             "\r\n"
+                             "Hello, world!";
+
+            int bytes_sent = send(client_socket, response, strlen(response), 0);
+
+            if (bytes_sent < 0) {
+                if (LOGGING) perror("error in send");
+                close(client_socket);
+                free_http_request(parsed_request);
+                free(server);
+                continue;
+            }
+
+            printf("Sent %d bytes:\n%s\n", bytes_sent, response);
+
+            free_http_request(parsed_request);
+            close(client_socket);
+            close(server->socket);
+            free(server);
+            exit(0);
+        } else {
+            close(client_socket);
+
+            // wait for child processes to prevent zombies
+            waitpid(pid, NULL, WNOHANG);    
+        }
     }
-
-    char request[BUFSIZ];
-
-    int bytes_received = recv(client_socket, request, sizeof(request), 0);
-
-    if (bytes_received< 0) {
-        if (LOGGING) perror("error in recv");
-        close(client_socket);
-        close(server->socket);
-        free(server);
-        return 1;
-    }
-
-    printf("______________________________________________________________\n");
-    printf("Received %d bytes:\n%s\n", bytes_received, request);
-    printf("______________________________________________________________\n");
-
-    http_request *parsed_request = parse_http_request(request);
     
-    printf("______________________________________________________________\n");
-    printf("Method: %s\n", parsed_request->method);
-    printf("URL: %s\n", parsed_request->url);
-    printf("Version: %s\n", parsed_request->version);
-
-    http_header **current_header = parsed_request->http_headers;
-
-    while (current_header != NULL && (*current_header)->name[0] != '\0') {
-        printf("Header %s => %s\n", (*current_header)->name, (*current_header)->value);
-        current_header++;
-    }
-
-    printf("______________________________________________________________\n");
-
-    char *response =
-        "HTTP/1.1 200 OK\r\n"
-        "Content-Type: text/plain\r\n"
-        "Content-Length: 13\r\n"
-        "\r\n"
-        "Hello, world!";
-
-    int bytes_sent = send(client_socket, response, strlen(response), 0);
-
-    if (bytes_sent < 0) {
-        if (LOGGING) perror("error in send");
-        close(client_socket);
-        close(server->socket);
-        free_http_request(parsed_request);
-        free(server);
-    }
-        
-    printf("Sent %d bytes:\n%s\n", bytes_sent, response);
-
-    close(client_socket);
     close(server->socket);
-    free_http_request(parsed_request);
     free(server);
 
     return 0;
