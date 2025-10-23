@@ -197,9 +197,33 @@ http_request *parse_http_request(char *request) {
     (*current_header)->value = "\0";
 
     // TODO
-    parsed_request->body = parse_http_body(body_delimiter + 5);
+    parsed_request->body = parse_http_body(body_delimiter + 4);
 
     return parsed_request;
+}
+
+/**
+ * Prints the contents of an http_request struct.
+ * @param parsed_request The http_request struct to print.
+ */
+void print_request(http_request *parsed_request) {
+        printf("______________________________________________________________\n");
+        printf("Method: %s\n", parsed_request->method);
+        printf("URL: %s\n", parsed_request->url);
+        printf("Version: %s\n", parsed_request->version);
+
+        http_header **current_header = parsed_request->http_headers;
+
+        while (current_header != NULL && (*current_header)->name[0] != '\0') {
+            printf("Header %s => %s\n", (*current_header)->name, (*current_header)->value);
+            current_header++;
+        }
+
+        if (parsed_request->body != NULL) {
+            printf("Body: %s\n", parsed_request->body);
+        }
+
+        printf("______________________________________________________________\n");
 }
 
 /**

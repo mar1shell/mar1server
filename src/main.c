@@ -73,23 +73,7 @@ int main(int argc, char const *argv[]) {
 
             http_request *parsed_request = parse_http_request(request);
 
-            printf("______________________________________________________________\n");
-            printf("Method: %s\n", parsed_request->method);
-            printf("URL: %s\n", parsed_request->url);
-            printf("Version: %s\n", parsed_request->version);
-
-            http_header **current_header = parsed_request->http_headers;
-
-            while (current_header != NULL && (*current_header)->name[0] != '\0') {
-                printf("Header %s => %s\n", (*current_header)->name, (*current_header)->value);
-                current_header++;
-            }
-
-            if (parsed_request->body != NULL) {
-                printf("Body: %s\n", parsed_request->body);
-            }
-
-            printf("______________________________________________________________\n");
+            print_request(parsed_request);
 
             char *response = "HTTP/1.1 200 OK\r\n"
                              "Content-Type: text/plain\r\n"
