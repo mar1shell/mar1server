@@ -5,12 +5,18 @@ const char *CRLF = "\r\n";
 const char *BODY_DELIM = "\r\n\r\n";
 
 
+/**
+ * Retrieves the value of a specific header from an array of HTTP headers.
+ * @param http_headers The array of HTTP headers.
+ * @param name The name of the header to retrieve.
+ * @return A pointer to the value of the header, or NULL if not found.
+ */
 char *get_header_value(http_header **http_headers, char *name) {
     http_header **curr_header = http_headers;
 
     while (*curr_header != NULL && (*curr_header)->name[0] != '\0') {
         if (strcmp((*curr_header)->name, name) == 0) {
-            return curr_header;
+            return (*curr_header)->value;
         }
 
         curr_header++;
@@ -19,6 +25,12 @@ char *get_header_value(http_header **http_headers, char *name) {
     return NULL;
 }
 
+
+/**
+ * Validates an HTTP method.
+ * @param method The HTTP method to validate.
+ * @return 0 if valid, -1 otherwise.
+ */
 int validate_http_method(char *method) {
     char *valid_methods[] = {"GET", "POST", "PUT", "DELETE", "HEAD", "OPTIONS", "PATCH", "TRACE", "CONNECT", NULL};
 
@@ -31,6 +43,12 @@ int validate_http_method(char *method) {
     return -1;
 }
 
+
+/**
+ * Validates an HTTP version.
+ * @param version The HTTP version to validate.
+ * @return 0 if valid, -1 otherwise.
+ */
 int validate_http_version(char *version) {
     if (strcmp(version, "HTTP/1.1") == 0) {
         return 0;
@@ -181,12 +199,6 @@ http_request *parse_http_request(char *request) {
 
     // TODO
     parsed_request->body = parse_http_body(body_delimiter + 5);
-
-    http_header **host_header = get_header_value(parsed_request->http_headers, "Host");
-
-    if (host_header != NULL) {
-        printf(BLUE"Host header found: %s\n"RESET, (*host_header)->value);
-    }
 
     return parsed_request;
 }
