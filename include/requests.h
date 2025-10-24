@@ -7,16 +7,12 @@
 #include <stdlib.h>
 
 #define MAX_HEADERS 20
+#define MAX_URL_LENGTH 200
 
 typedef struct {
     char *name;
     char *value;
 } http_header;
-
-#define METHOD_SIZE 10
-#define URL_SIZE 100
-#define VERSION_SIZE 10
-#define STATUS_MESSAGE_SIZE 100
 
 typedef struct {
     char *method;

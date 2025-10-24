@@ -149,6 +149,12 @@ http_request *parse_http_request(char *request) {
     parsed_request->url = strtok(NULL, " ");
     parsed_request->version = strtok(NULL, " ");
 
+    if (strlen(parsed_request->url) > MAX_URL_LENGTH) {
+        if (LOGGING) perror("URL length exceeds maximum allowed length");
+        free(parsed_request);
+        return NULL;
+    }
+
     if (validate_http_method(parsed_request->method) != 0) {
         if (LOGGING) perror("Invalid HTTP method");
         free(parsed_request);
