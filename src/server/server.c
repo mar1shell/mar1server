@@ -23,7 +23,7 @@ http_server *init_http_server(int port) {
 
     if (server->socket < 0) {
         if (LOGGING) perror("problem in socket creation (init_http_server)");
-        free(server);
+        x_free(&server);
         return NULL;
     }
 
@@ -33,7 +33,7 @@ http_server *init_http_server(int port) {
 
     if (result < 0) {
         if (LOGGING) perror("problem in setsockopt (init_http_server)");
-        free(server);
+        x_free(&server);
         return NULL;
     }
 

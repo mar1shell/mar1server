@@ -6,5 +6,6 @@
 
 void printWelcomeBanner();
 int extractPort(char *portString);
+void *x_free(void **ptr);
 
 #endif // HELPERS_H

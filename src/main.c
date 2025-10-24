@@ -63,7 +63,7 @@ int main(int argc, char const *argv[]) {
                 if (LOGGING) perror("error in recv");
                 close(client_socket);
                 close(server->socket);
-                free(server);
+                x_free(&server);
                 exit(1);
             }
 
@@ -87,7 +87,7 @@ int main(int argc, char const *argv[]) {
                 if (LOGGING) perror("error in send");
                 close(client_socket);
                 free_http_request(parsed_request);
-                free(server);
+                x_free(&server);
                 continue;
             }
 
@@ -96,7 +96,7 @@ int main(int argc, char const *argv[]) {
             free_http_request(parsed_request);
             close(client_socket);
             close(server->socket);
-            free(server);
+            x_free(&server);
             exit(0);
         } else {
             close(client_socket);
@@ -107,7 +107,7 @@ int main(int argc, char const *argv[]) {
     }
     
     close(server->socket);
-    free(server);
+    x_free(&server);
 
     return 0;
 }

@@ -32,3 +32,20 @@ int extractPort(char *port_string) {
 
     return port;
 }
+
+// function wrappers
+
+/**
+ * Wrapper for free function that sets the pointer to NULL after freeing.
+ * @param ptr Pointer to pointer of the memory to be freed.
+ * @return NULL after freeing the memory.
+ */
+void *x_free(void **ptr) {
+    if (ptr != NULL) {
+        free(*ptr);
+    }
+
+    *ptr = NULL;
+
+    return NULL;
+}

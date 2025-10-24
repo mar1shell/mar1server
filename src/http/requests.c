@@ -97,7 +97,7 @@ http_header *parse_http_header(char *raw_http_header) {
 
     if (colon_pos == NULL ) {
         if (LOGGING) perror("Invalid HTTP header format");
-        free(parsed_http_header);
+        x_free(&parsed_http_header);
         return NULL;
     }
 
@@ -134,7 +134,7 @@ http_request *parse_http_request(char *request) {
 
     if (body_delimiter == NULL) {
         if (LOGGING) perror("No body delimiter found in request");
-        free(parsed_request);
+        x_free(&parsed_request);
         return NULL;
     }
 
@@ -151,19 +151,19 @@ http_request *parse_http_request(char *request) {
 
     if (strlen(parsed_request->url) > MAX_URL_LENGTH) {
         if (LOGGING) perror("URL length exceeds maximum allowed length");
-        free(parsed_request);
+        x_free(&parsed_request);
         return NULL;
     }
 
     if (validate_http_method(parsed_request->method) != 0) {
         if (LOGGING) perror("Invalid HTTP method");
-        free(parsed_request);
+        x_free(&parsed_request);
         return NULL;
     }
 
     if (validate_http_version(parsed_request->version) != 0) {
         if (LOGGING) perror("Invalid HTTP version");
-        free(parsed_request);
+        x_free(&parsed_request);
         return NULL;
     }
 
@@ -173,7 +173,7 @@ http_request *parse_http_request(char *request) {
 
     if (parsed_request->http_headers == NULL) {
         if (LOGGING) perror("error in malloc (parse_http_request)");
-        free(parsed_request);
+        x_free(&parsed_request);
         return NULL;
     }
 
@@ -233,7 +233,7 @@ void print_request(http_request *parsed_request) {
 }
 
 /**
- * Frees the memory allocated for an http_request struct.
+ * frees the memory allocated for an http_request struct.
  * @param request The http_request struct to free.
  * @return 0 on success.
  */
@@ -246,14 +246,14 @@ int free_http_request(http_request *request) {
         http_header **current_header = request->http_headers;
 
         while ((*current_header)->name[0] != '\0') {
-            free(*current_header);
+            x_free(current_header);
 
             current_header++;
         }
 
-        free(*current_header);
-        free(request->http_headers);
-        free(request);
+        x_free(current_header);
+        x_free(&request->http_headers);
+        x_free(&request);
     }
 
     return 0;
