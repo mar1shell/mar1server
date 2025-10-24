@@ -1,12 +1,16 @@
 #ifndef CONSTANTS_H
 #define CONSTANTS_H
 
+typedef unsigned char bool;
 
 #define TRUE 1
-#define FALSE 2
+#define FALSE 0
 #define PORT 9001
 #define BACKLOG 10
 #define LOGGING TRUE
+#define CRLF "\r\n"
+#define BODY_DELIM "\r\n\r\n"
+#define BODY_DELIM_LENGTH 4
 
 # define RESET   "\x1b[0m"
 

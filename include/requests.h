@@ -24,6 +24,6 @@ typedef struct {
 
 http_request *parse_http_request(char *request);
 void print_request(http_request *parsed_request);
-int free_http_request(http_request *request);
+void free_http_request(http_request *request);
 
 #endif // REQUESTS_H

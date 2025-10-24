@@ -13,8 +13,8 @@ void printWelcomeBanner() {
                 "██║ ╚═╝ ██║██║  ██║██║  ██║ ██║███████║███████╗██║  ██║ ╚████╔╝ ███████╗██║  ██║\n"
                 "╚═╝     ╚═╝╚═╝  ╚═╝╚═╝  ╚═╝ ╚═╝╚══════╝╚══════╝╚═╝  ╚═╝  ╚═══╝  ╚══════╝╚═╝  ╚═╝\n"
                 "________________________________________________________________________________\n\n\n"RESET);
-    printf("Welcome to the mar1server Server!\n"
-            "Server is starting up...\n");
+    printf(B_WHITE"Welcome to the mar1server Server!\n"
+            "Server is starting up...\n"RESET);
 }
 
 
@@ -40,12 +40,10 @@ int extractPort(char *port_string) {
  * @param ptr Pointer to pointer of the memory to be freed.
  * @return NULL after freeing the memory.
  */
-void *x_free(void **ptr) {
+void *x_free(void *ptr) {
     if (ptr != NULL) {
-        free(*ptr);
+        free(ptr);
     }
-
-    *ptr = NULL;
 
     return NULL;
 }

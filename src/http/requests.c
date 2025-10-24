@@ -1,8 +1,6 @@
 #include "../../include/constants.h"
 #include "../../include/requests.h"
-
-const char *CRLF = "\r\n";
-const char *BODY_DELIM = "\r\n\r\n";
+#include "../../include/helpers.h"
 
 /**
  * Retrieves the value of a specific header from an array of HTTP headers.
@@ -13,7 +11,7 @@ const char *BODY_DELIM = "\r\n\r\n";
 char *get_header_value(http_header **http_headers, char *name) {
     http_header **curr_header = http_headers;
 
-    while (*curr_header != NULL && (*curr_header)->name[0] != '\0') {
+    while (*curr_header != NULL) {
         if (strcasecmp((*curr_header)->name, name) == 0) {
             return (*curr_header)->value;
         }
@@ -24,48 +22,15 @@ char *get_header_value(http_header **http_headers, char *name) {
     return NULL;
 }
 
-
 /**
- * Validates an HTTP method.
- * @param method The HTTP method to validate.
- * @return 0 if valid, -1 otherwise.
- */
-int validate_http_method(char *method) {
-    char *valid_methods[] = {"GET", "POST", "PUT", "DELETE", "HEAD", "OPTIONS", "PATCH", "TRACE", "CONNECT", NULL};
-
-    for (int i = 0; valid_methods[i] != NULL; i++) {
-        if (strcmp(method, valid_methods[i]) == 0) {
-            return 0;
-        }
-    }
-
-    return -1;
-}
-
-
-/**
- * Validates an HTTP version.
- * @param version The HTTP version to validate.
- * @return 0 if valid, -1 otherwise.
- */
-int validate_http_version(char *version) {
-    if (strcmp(version, "HTTP/1.1") == 0) {
-        return 0;
-    }
-
-    return -1;
-}
-
-
-// TODO: implement
-/**
+ * TODO
  * Parses the body from the raw HTTP request.
  * @param raw_body The raw body string.
  * @param headers The array of HTTP headers.
  * @return A pointer to the parsed body string.
- * @attention The returned body must be freed by the caller.
+ * @attention NOT IMPLEMENTED YET
  */
-char * parse_http_body(char *raw_body) {
+char *parse_http_body(char *raw_body) {
     if (raw_body == NULL) {
         return NULL;
     }
@@ -89,15 +54,18 @@ http_header *parse_http_header(char *raw_http_header) {
     parsed_http_header = (http_header *)malloc(sizeof(http_header));
 
     if (parsed_http_header == NULL) {
-        if (LOGGING) perror("error in malloc (parse_http_header)");
+        if (LOGGING) perror(RED"error in malloc (parse_http_header)"RESET);
+        
         return NULL;
     }
 
     char *colon_pos = strstr(raw_http_header, ": ");
 
     if (colon_pos == NULL ) {
-        if (LOGGING) perror("Invalid HTTP header format");
-        x_free(&parsed_http_header);
+        if (LOGGING) perror(RED"Invalid HTTP header format"RESET);
+
+        parsed_http_header = x_free(parsed_http_header);
+
         return NULL;
     }
 
@@ -126,54 +94,48 @@ http_request *parse_http_request(char *request) {
     parsed_request = (http_request *)malloc(sizeof(http_request));
 
     if (parsed_request == NULL) {
-        if (LOGGING) perror("error in malloc (parse_http_request)");
+        if (LOGGING) perror(RED"error in malloc (parse_http_request)"RESET);
+
         return NULL;
     }
+
+    parsed_request->method = NULL;
+    parsed_request->url = NULL;
+    parsed_request->version = NULL;
+    parsed_request->http_headers = NULL;
+    parsed_request->body = NULL;
 
     char *body_delimiter = strstr(request, BODY_DELIM);
 
     if (body_delimiter == NULL) {
-        if (LOGGING) perror("No body delimiter found in request");
-        x_free(&parsed_request);
+        if (LOGGING) perror(RED"No body delimiter found in request"RESET);
+
+        parsed_request = x_free(parsed_request);
+
         return NULL;
     }
 
     *body_delimiter = '\0';
 
-    parsed_request->body = body_delimiter + 4;
+    parsed_request->body = body_delimiter + BODY_DELIM_LENGTH;
 
-    char *state;
-    char *line = __strtok_r(request, CRLF, &state);
+    char *state = NULL;
+    char *line = NULL;
+    line = __strtok_r(request, CRLF, &state);
 
     parsed_request->method = strtok(line, " ");
     parsed_request->url = strtok(NULL, " ");
     parsed_request->version = strtok(NULL, " ");
-
-    if (strlen(parsed_request->url) > MAX_URL_LENGTH) {
-        if (LOGGING) perror("URL length exceeds maximum allowed length");
-        x_free(&parsed_request);
-        return NULL;
-    }
-
-    if (validate_http_method(parsed_request->method) != 0) {
-        if (LOGGING) perror("Invalid HTTP method");
-        x_free(&parsed_request);
-        return NULL;
-    }
-
-    if (validate_http_version(parsed_request->version) != 0) {
-        if (LOGGING) perror("Invalid HTTP version");
-        x_free(&parsed_request);
-        return NULL;
-    }
 
     line = __strtok_r(NULL, CRLF, &state);
 
     parsed_request->http_headers = (http_header **)malloc(sizeof(http_header *) * MAX_HEADERS);
 
     if (parsed_request->http_headers == NULL) {
-        if (LOGGING) perror("error in malloc (parse_http_request)");
-        x_free(&parsed_request);
+        if (LOGGING) perror(RED"error in malloc (parse_http_request)"RESET);
+
+        parsed_request = x_free(parsed_request);
+        
         return NULL;
     }
 
@@ -183,13 +145,14 @@ http_request *parse_http_request(char *request) {
     
     while (line != NULL) {
         // TODO: handle max headers case
-
         *current_header = parse_http_header(line);
         
         // TODO: handle this
         if (*current_header == NULL) {
-            if (LOGGING) perror("error in parse_http_header");
+            if (LOGGING) perror(RED"error in parse_http_header"RESET);
+
             free_http_request(parsed_request);
+
             return NULL;
         }
 
@@ -198,12 +161,10 @@ http_request *parse_http_request(char *request) {
         current_header++;
     }
 
-    *current_header = malloc(sizeof(http_header));
-    (*current_header)->name = "\0";
-    (*current_header)->value = "\0";
+    *current_header = NULL;
 
     // TODO
-    parsed_request->body = parse_http_body(body_delimiter + 4);
+    parsed_request->body = parse_http_body(body_delimiter + BODY_DELIM_LENGTH);
 
     return parsed_request;
 }
@@ -220,8 +181,9 @@ void print_request(http_request *parsed_request) {
 
         http_header **current_header = parsed_request->http_headers;
 
-        while (current_header != NULL && (*current_header)->name[0] != '\0') {
+        while (current_header != NULL && *current_header != NULL && (*current_header)->name != NULL) {
             printf("Header %s => %s\n", (*current_header)->name, (*current_header)->value);
+
             current_header++;
         }
 
@@ -237,24 +199,24 @@ void print_request(http_request *parsed_request) {
  * @param request The http_request struct to free.
  * @return 0 on success.
  */
-int free_http_request(http_request *request) {
+void free_http_request(http_request *request) {
     if (request == NULL) {
-        return 0;
+        return;
     }
 
     if (request->http_headers != NULL) {
         http_header **current_header = request->http_headers;
 
-        while ((*current_header)->name[0] != '\0') {
-            x_free(current_header);
+        while (*current_header != NULL) {
+            *current_header = x_free(*current_header);
 
             current_header++;
         }
 
-        x_free(current_header);
-        x_free(&request->http_headers);
-        x_free(&request);
+        if (*current_header != NULL) current_header = x_free(*current_header);
+
+        request->http_headers = x_free(request->http_headers);
     }
 
-    return 0;
+    request = x_free(request);
 }

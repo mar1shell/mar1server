@@ -1,16 +1,25 @@
 #include "../include/constants.h"
+#include "../include/controller.h"
 #include "../include/helpers.h"
-#include "../include/helpers.h"
-#include "../include/server.h"
-#include "../include/requests.h"
 #include "../include/main.h"
+#include "../include/requests.h"
+#include "../include/server.h"
 
 
+/**
+ * Main function to start the HTTP server.
+ * @param argc Argument count from command line.
+ * @param argv Argument vector from command line.
+ * @return Exit status code.
+ */
 int main(int argc, char const *argv[]) {
+    //TODO: add config files, and also validate files like 404 and index.html existence
+    
     printWelcomeBanner();
 
     if (argc > 2) {
         printf(B_WHITE"Usage: %s [port]\n"RESET, argv[0]);
+
         return 1;
     }
 
@@ -21,15 +30,17 @@ int main(int argc, char const *argv[]) {
 
         if (port < 0) {
             perror(RED"Invalid port number. Please provide a port between 1 and 65534.\n"RESET);
+
             return 1;
         }
     }
 
-    // must be freed
+    // initialize the HTTP server
     http_server *server = init_http_server(port);
 
     if (server == NULL) {
-        perror(RED"Failed to initialize server.\n"RESET);
+        if (LOGGING) perror(RED"Failed to initialize server.\n"RESET);
+
         return 1;
     }
 
@@ -40,65 +51,68 @@ int main(int argc, char const *argv[]) {
         // accept a client connection and receive data
         client_socket = accept_connection(server->socket, &client_address);
 
+        printf(B_BLUE"##############################################################\n"RESET);
+
         if (client_socket < 0) {
-            if (LOGGING) perror("error in accept");
+            if (LOGGING) perror(RED"error in accept"RESET);
+
             break;
         }
 
+        // fork a new process to handle the client request
         pid_t pid = fork();
 
-
         if (pid < 0) {
-            if (LOGGING) perror("error in fork");
+            if (LOGGING) perror(RED"error in fork"RESET);
             close(client_socket);
             continue;
         }
 
+        // child process
         if (pid == 0) {
             char request[BUFSIZ];
+            ssize_t bytes_received;
+            
+            bytes_received = recv(client_socket, request, sizeof(request), 0);
 
-            int bytes_received = recv(client_socket, request, sizeof(request), 0);
+            if (bytes_received < 0) {
+                if (LOGGING) perror(RED"error in recv"RESET);
 
-            if (bytes_received< 0) {
-                if (LOGGING) perror("error in recv");
                 close(client_socket);
                 close(server->socket);
-                x_free(&server);
+                server = x_free(server);
+                
+                printf(B_BLUE"##############################################################\n"RESET);
+
                 exit(1);
             }
 
             printf("______________________________________________________________\n");
-            printf("Received %d bytes:\n%s\n", bytes_received, request);
+            printf("Received %ld bytes:\n%s\n", bytes_received, request);
             printf("______________________________________________________________\n");
 
             http_request *parsed_request = parse_http_request(request);
 
             print_request(parsed_request);
 
-            char *response = "HTTP/1.1 200 OK\r\n"
-                             "Content-Type: text/plain\r\n"
-                             "Content-Length: 13\r\n"
-                             "\r\n"
-                             "Hello, world!";
-
-            int bytes_sent = send(client_socket, response, strlen(response), 0);
-
-            if (bytes_sent < 0) {
-                if (LOGGING) perror("error in send");
-                close(client_socket);
-                free_http_request(parsed_request);
-                x_free(&server);
-                continue;
+            int status = handle_request(client_socket, parsed_request);
+            
+            if (status < 0) {
+                if (LOGGING) perror(RED"error in handling request"RESET);
+            } else {
+                if (LOGGING) printf(B_WHITE"request handled successfully"RESET"\n");
             }
 
-            printf("Sent %d bytes:\n%s\n", bytes_sent, response);
-
+            // cleanup
             free_http_request(parsed_request);
             close(client_socket);
             close(server->socket);
-            x_free(&server);
+            server = x_free(server);
+            
+            printf(B_BLUE"##############################################################\n"RESET);
+
             exit(0);
-        } else {
+        } else { // parent process
             close(client_socket);
 
             // wait for child processes to prevent zombies
@@ -106,8 +120,9 @@ int main(int argc, char const *argv[]) {
         }
     }
     
+    // cleanup
     close(server->socket);
-    x_free(&server);
+    server = x_free(server);
 
     return 0;
 }
