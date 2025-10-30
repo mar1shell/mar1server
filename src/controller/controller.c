@@ -12,177 +12,123 @@
  * @param request The parsed http_request struct.
  * @return TRUE (1) on success, FALSE (0) on failure.
  */
-bool get_controller(int client_socket, http_request *request) {
-    if (request == NULL) {
-        if (LOGGING) perror(RED"Received NULL request in get_controller"RESET);
+x_bool get_controller(int client_socket, http_request *request)
+{
+    if (request == NULL || client_socket < 0)
+    {
+        if (LOGGING)
+            perror(RED "invalid arguments (get_controller)" RESET);
 
         return FALSE;
+    }
+
+    char file_path[PATH_MAX];
+
+    if (strcmp(request->url, "/") == 0)
+        snprintf(file_path, sizeof(file_path), "%s/index.html", STATIC_FILES_PATH);
+    else
+        snprintf(file_path, sizeof(file_path), "%s%s", STATIC_FILES_PATH, request->url);
+
+    printf("Requested file path: %s\n", file_path);
+
+    char *content_type = extract_content_type_from_file(file_path);
+
+    if (content_type == NULL)
+    {
+        if (LOGGING)
+            perror(RED "Failed to extract content type in get_controller" RESET);
+
+        send_error_response(client_socket, HTTP_NOT_FOUND, NULL);
+
+        return TRUE;
     }
 
     http_response *response = (http_response *)malloc(sizeof(http_response));
 
-    if (response == NULL) {
-        if (LOGGING) perror("error in malloc response (get_controller)");
-        return FALSE;
-    }
-
-    // initialize response fields
     response->status_code = 0;
     response->status_message = NULL;
     response->http_response_headers = NULL;
-    response->body = NULL;
+    response->body = (char *)malloc(INITIAL_BODY_SIZE * sizeof(char));
 
-    char *final_response;
+    if (response->body == NULL)
+    {
+        if (LOGGING)
+            perror(RED "Failed to allocate memory for response body in get_controller" RESET);
 
-    final_response = (char *)malloc(sizeof(char) * INITIAL_RESPONSE_SIZE);
-
-    if (final_response == NULL) {
-        if (LOGGING) perror(RED"error in malloc final_response (get_controller)"RESET);
-
-        response = x_free(response);
-
-        return FALSE;
-    }
-
-    char *file_path = request->url;
-    char absolute_file_path[MAX_URL_LENGTH];
-
-    // Construct the absolute file path
-    strcpy(absolute_file_path, STATIC_FILES_PATH);
-
-    if (strcmp(file_path, "/") == 0) {
-        strcat(absolute_file_path, "/index.html");
-    } else {
-        strcat(absolute_file_path, file_path);
-    }
-    
-    FILE *file;
-    ssize_t bytes_sent;
-
-    if (file_exists(absolute_file_path) == TRUE) {
-        printf(MAGENTA"GET request for file: %s\n"RESET, absolute_file_path);
-        
-        file = fopen(absolute_file_path, "r");
-
-        if (file == NULL) {
-            if (LOGGING) fprintf(stderr, YELLOW"error in opening file %s (get_controller)\n"RESET, absolute_file_path);
-            
-            response->status_code = HTTP_INTERNAL_SERVER_ERROR;
-            response->status_message = get_status_message(response->status_code);
-
-            final_response = create_final_response_from_string(&response, final_response, INITIAL_RESPONSE_SIZE, "EROR OPENING FILE :(");
-
-            bytes_sent = send_response(client_socket, final_response);
-
-            if (bytes_sent < 0) {
-                if (LOGGING) perror(RED"error in send_response (get_controller)"RESET);
-                
-                final_response = x_free(final_response);
-
-                free_http_response(response);
-                x_fclose(file);
-
-                return FALSE;
-            }
-
-            printf(B_WHITE"Sent %zd bytes:\n%s\n"RESET, bytes_sent, final_response);
-
-            final_response = x_free(final_response);
-
-            free_http_response(response);
-            x_fclose(file);
-
-            return TRUE;
-        }
-
-        response->status_code = HTTP_OK;
-        response->status_message = get_status_message(response->status_code);
-
-        final_response = create_final_response_from_file(&response, final_response, INITIAL_RESPONSE_SIZE, file, absolute_file_path);
-
-        bytes_sent = send_response(client_socket, final_response);
-
-        if (bytes_sent < 0) {
-            if (LOGGING) perror(RED"error in send_response (get_controller)"RESET);
-
-            final_response = x_free(final_response);
-
-            x_fclose(file);
-            free_http_response(response);
-
-            return FALSE;
-        }
-
-        printf(B_WHITE"Sent %zd bytes:\n%s\n"RESET, bytes_sent, final_response);
-
-        final_response = x_free(final_response);
-        
-        x_fclose(file);
+        send_error_response(client_socket, HTTP_INTERNAL_SERVER_ERROR, NULL);
         free_http_response(response);
 
         return TRUE;
     }
 
-    response->status_code = HTTP_NOT_FOUND;
-    response->status_message = get_status_message(response->status_code);
+    if (strstr(content_type, "text") != NULL || strcasecmp(content_type, "application/json") == 0 ||
+        strcasecmp(content_type, "application/javascript") == 0)
+    {
 
-    strcpy(absolute_file_path, STATIC_FILES_PATH);
-    strcat(absolute_file_path, "/404.html");
+        if (read_text_file(file_path, &response->body, INITIAL_BODY_SIZE) == NULL)
+        {
+            if (LOGGING)
+                perror(RED "Failed to read requested file in get_controller" RESET);
 
-    file = fopen(absolute_file_path, "r");
-
-    if (file == NULL) {
-        if (LOGGING) fprintf(stderr, "error in opening file %s (get_controller)\n", absolute_file_path);
-
-        final_response = create_final_response_from_string(&response, final_response, INITIAL_RESPONSE_SIZE, "404 FILE NOT FOUND :(");
-
-        if (final_response != NULL) {
-            bytes_sent = send_response(client_socket, final_response);
-
-            if (bytes_sent < 0) {
-                if (LOGGING) perror(RED"error in send_response (get_controller)"RESET);
-
-                final_response = x_free(final_response);
-                free_http_response(response);
-
-                return FALSE;
-            }
-            
-            printf(B_WHITE"Sent %zd bytes:\n%s\n"RESET, bytes_sent, final_response);
-            
-            final_response = x_free(final_response);
+            send_error_response(client_socket, HTTP_INTERNAL_SERVER_ERROR, NULL);
             free_http_response(response);
-            
+
             return TRUE;
         }
+    }
+    else
+    {
+        // TODO: Handle binary files
 
+        if (LOGGING)
+            perror(RED "Binary file serving not implemented yet in get_controller" RESET);
 
-        final_response = x_free(final_response);
+        send_error_response(client_socket, HTTP_INTERNAL_SERVER_ERROR, NULL);
+
         free_http_response(response);
 
-        return FALSE;
+        return TRUE;
     }
-    
-    final_response = create_final_response_from_file(&response, final_response, INITIAL_RESPONSE_SIZE, file, absolute_file_path);
 
-    bytes_sent = send_response(client_socket, final_response);
+    response->status_code = HTTP_OK;
+    response->status_message = get_status_message(HTTP_OK);
 
-    if (bytes_sent < 0) {
-        if (LOGGING) perror(RED"error in send_response (get_controller)"RESET);
+    char content_length[SIZE_T_STRING_SIZE];
 
-        final_response = x_free(final_response);
+    sprintf(content_length, "%lu", strlen(response->body));
 
-        x_fclose(file);
+    response->http_response_headers = create_basic_response_headers(content_type, content_length);
+
+    char *final_response = (char *)malloc(INITIAL_RESPONSE_SIZE);
+
+    if (final_response == NULL)
+    {
+        if (LOGGING)
+            perror(RED "Failed to allocate memory for final response in get_controller" RESET);
+
         free_http_response(response);
 
-        return FALSE;
+        send_error_response(client_socket, HTTP_INTERNAL_SERVER_ERROR, NULL);
+
+        return TRUE;
     }
 
-    printf(B_WHITE"Sent %zd bytes:\n%s\n"RESET, bytes_sent, final_response);
+    if (create_final_response(response, &final_response, INITIAL_RESPONSE_SIZE) == NULL)
+    {
+        if (LOGGING)
+            perror(RED "Failed to create final response in get_controller" RESET);
 
-    final_response = x_free(final_response);
+        free(final_response);
+        free_http_response(response);
 
-    x_fclose(file);
+        send_error_response(client_socket, HTTP_INTERNAL_SERVER_ERROR, NULL);
+
+        return TRUE;
+    }
+
+    send_tcp_response(client_socket, final_response);
+
+    x_free(final_response);
     free_http_response(response);
 
     return TRUE;
@@ -194,70 +140,25 @@ bool get_controller(int client_socket, http_request *request) {
  * @param request The parsed http_request struct.
  * @return 0 on success, -1 on failure.
  */
-bool handle_request(int client_socket, http_request *request) {
-    if (request == NULL) {
-        if (LOGGING) perror(RED"Received NULL request"RESET);
+x_bool handle_request(int client_socket, http_request *request)
+{
+    if (request == NULL || client_socket < 0)
+    {
+        if (LOGGING)
+            perror(RED "invalid arguments (handle_request)" RESET);
 
         return FALSE;
     }
 
-    int status;
-
-    if (request->method != NULL && strcasecmp(request->method, "GET") == 0) {
-        status = get_controller(client_socket, request);
-        
-        return status;
+    if (request->method != NULL && strcasecmp(request->method, "GET") == 0)
+    {
+        return get_controller(client_socket, request);
     }
 
-    if (LOGGING) fprintf(stderr, YELLOW"Unsupported HTTP method: %s\n"RESET, request->method);
+    if (LOGGING)
+        fprintf(stderr, YELLOW "Unsupported HTTP method: %s\n" RESET, request->method);
 
-    http_response *response = (http_response *)malloc(sizeof(http_response));
+    send_error_response(client_socket, HTTP_NOT_IMPLEMENTED, NULL);
 
-    if (response == NULL) {
-        if (LOGGING) perror(RED"error in malloc response (get_controller)"RESET);
-        
-        return FALSE;
-    }
-
-    response->http_response_headers = NULL;
-    response->body = NULL;
-    response->status_code = HTTP_METHOD_NOT_ALLOWED;
-    response->status_message = get_status_message(response->status_code);
-
-    char *final_response = (char *)malloc(sizeof(char) * INITIAL_RESPONSE_SIZE);
-
-    if (final_response == NULL) {
-        if (LOGGING) perror(RED"error in malloc final_response (get_controller)"RESET);
-   
-        response = x_free(response);
-        
-        return FALSE;
-    }
-
-    char *file_path = "/405.html";
-    char absolute_file_path[MAX_URL_LENGTH];
-
-    strcpy(absolute_file_path, STATIC_FILES_PATH);
-    strcat(absolute_file_path, file_path);
-
-    FILE *file = fopen(absolute_file_path, "r");
-
-    final_response = create_final_response_from_file(&response, final_response, INITIAL_RESPONSE_SIZE, file, file_path);
-
-    ssize_t bytes_sent = send_response(client_socket, final_response);
-
-    status = TRUE;
-    
-    if (bytes_sent < 0) {
-        if (LOGGING) perror(RED"error in send_response (get_controller)"RESET);
-
-        status = FALSE;
-    }
-
-    printf(B_WHITE"Sent %zd bytes:\n%s\n"RESET, bytes_sent, final_response);
-    
-    free_http_response(response);
-    x_free(final_response);
-
-    return status;
+    return TRUE;
 }

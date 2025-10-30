@@ -52,10 +52,22 @@ http_server *init_http_server(int port) {
     server_address.sin_addr.s_addr = INADDR_ANY;
 
     // Bind the socket to the specified port
-    bind(server->socket, (struct sockaddr *)&server_address, sizeof(server_address));
+    if (bind(server->socket, (struct sockaddr *)&server_address, sizeof(server_address)) < 0) {
+        if (LOGGING) perror(RED"problem in bind (init_http_server)"RESET);
+       
+        server = x_free(server);
+       
+        return NULL;
+    }
 
     // Start listening for incoming connections
-    listen(server->socket, BACKLOG);
+    if (listen(server->socket, BACKLOG) < 0) {
+        if (LOGGING) perror(RED"problem in listen (init_http_server)"RESET);
+       
+        server = x_free(server);
+       
+        return NULL;
+    }
 
     printf(B_WHITE"Server listening on port "RESET B_BLUE"%d\n"RESET, port);
 

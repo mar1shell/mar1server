@@ -2,6 +2,7 @@
 #include "../../include/helpers.h"
 #include "../../include/http_status.h"
 #include "../../include/responses.h"
+#include "../../include/constants.h"
 
 const http_response_status http_status_map[] = {
     {HTTP_OK, "OK"},
@@ -11,9 +12,9 @@ const http_response_status http_status_map[] = {
     {HTTP_METHOD_NOT_ALLOWED, "Method Not Allowed"},
     {HTTP_PAYLOAD_TOO_LARGE, "Payload Too Large"},
     {HTTP_INTERNAL_SERVER_ERROR, "Internal Server Error"},
+    {HTTP_NOT_IMPLEMENTED, "Not Implemented"},
     {0, NULL} // Terminator (end of the list)
 };
-
 
 const char *valid_content_types[] = {
     "text/plain",
@@ -23,19 +24,21 @@ const char *valid_content_types[] = {
     "image/jpeg",
     "application/javascript",
     "text/css",
-    NULL
-};
+    NULL};
 
 /**
  * Get the status message corresponding to a given status code.
  * @param status_code The HTTP status code.
  * @return The corresponding status message, or NULL if not found.
  */
-const char *get_status_message(int status_code) {
+const char *get_status_message(int status_code)
+{
     const http_response_status *curr_status = http_status_map;
 
-    while (curr_status != NULL && curr_status->code != 0) {
-        if (curr_status->code == status_code) {
+    while (curr_status != NULL && curr_status->code != 0)
+    {
+        if (curr_status->code == status_code)
+        {
             return curr_status->message;
         }
 
@@ -51,55 +54,69 @@ const char *get_status_message(int status_code) {
  * @param content_length The Content-Length header value.
  * @return An array of http_response_header pointers.
  */
-http_response_header **create_basic_response_headers(char *content_type, char *content_length) {
+http_response_header **create_basic_response_headers(char *content_type, char *content_length)
+{
     http_response_header **response_headers = (http_response_header **)malloc(sizeof(http_response_header *) * MAX_RESPONSE_HEADERS);
 
-    if (response_headers == NULL) {
-        if (LOGGING) perror("Failed to allocate memory for response headers");
+    if (response_headers == NULL)
+    {
+        if (LOGGING)
+            perror("Failed to allocate memory for response headers");
         return NULL;
     }
 
-    for (int i = 0; i < MAX_RESPONSE_HEADERS; i++) {
+    for (int i = 0; i < MAX_RESPONSE_HEADERS; i++)
+    {
         response_headers[i] = NULL;
     }
 
-    if (content_type == NULL) {
+    if (content_type == NULL)
+    {
         content_type = "text/plain";
     }
 
-    if (content_length == NULL) {
+    if (content_length == NULL)
+    {
         content_length = "0";
     }
 
-    bool is_valid_content_type = FALSE;
+    x_bool is_valid_content_type = FALSE;
 
-    for (int i = 0; valid_content_types[i] != NULL; i++) {
-        if (strcmp(valid_content_types[i], content_type) == 0) {
+    for (int i = 0; valid_content_types[i] != NULL; i++)
+    {
+        if (strcmp(valid_content_types[i], content_type) == 0)
+        {
             is_valid_content_type = TRUE;
 
             break;
         }
     }
 
-    if (is_valid_content_type == FALSE) {
-        if (LOGGING) perror("Invalid content type provided for response headers");
+    if (is_valid_content_type == FALSE)
+    {
+        if (LOGGING)
+            perror("Invalid content type provided for response headers");
 
         response_headers = x_free(response_headers);
-        
+
         return NULL;
     }
 
     char *names[] = {"Content-Type", "Content-Length", "Connection", NULL};
     char *values[] = {content_type, content_length, "close", NULL};
 
-    for (int i = 0; i < 3; i++) {
+    for (int i = 0; i < 3; i++)
+    {
         response_headers[i] = (http_response_header *)malloc(sizeof(http_response_header));
-        
+
         // TODO
-        if (response_headers[i] == NULL) {
-            if (LOGGING) perror(RED"Failed to allocate memory for response header"RESET); 
-            
-            for (int j = 0; j < i; j++) {
+        if (response_headers[i] == NULL)
+        {
+            if (LOGGING)
+                perror(RED "Failed to allocate memory for response header" RESET);
+
+            for (int j = 0; j < i; j++)
+            {
                 response_headers[j] = x_free(response_headers[j]);
             }
 
@@ -117,35 +134,37 @@ http_response_header **create_basic_response_headers(char *content_type, char *c
     return response_headers;
 }
 
-
 /**
  * Sends the HTTP response over the given socket.
  * @param socket The socket descriptor to send the response to.
  * @param response The HTTP response string to send.
  * @return The number of bytes sent, or -1 on error.
  */
-ssize_t send_response(int socket, char *response) {
+ssize_t send_tcp_response(int socket, char *response)
+{
     ssize_t bytes_sent = send(socket, response, strlen(response), 0);
 
     return bytes_sent;
 }
 
 /**
- * Creates the final HTTP response string from the given http_response structure and body string.
- * @param response_ptr Pointer to the http_response structure.
- * @param final_response The buffer to store the final response string.
- * @param final_response_size The size of the final_response buffer.
- * @param body The body string to include in the response.
- * @return The final response string, or NULL on error.
+ * Creates the final HTTP response string from the given http_response structure.
+ * @param response Pointer to the http_response structure.
+ * @param final_response_ptr Pointer to the buffer where the final response will be stored.
+ * @param final_response_size The size of the final response buffer.
+ * @return Pointer to the final response string, or NULL on failure.
  */
-char *create_final_response_from_string(http_response **response_ptr, char *final_response, size_t final_response_size, const char *body) {
-    if (response_ptr == NULL || *response_ptr == NULL) {
-        if (LOGGING) perror(RED"response is NULL in create_final_response_from_string"RESET);
+char *create_final_response(http_response *response, char **final_response_ptr, size_t final_response_size)
+{
+    char *final_response = *final_response_ptr;
+
+    if (response == NULL)
+    {
+        if (LOGGING)
+            perror(RED "response is NULL in create_final_response_from_string" RESET);
 
         return NULL;
     }
-
-    http_response *response = *response_ptr;
 
     char status_code_string[STATUS_CODE_SIZE];
 
@@ -161,18 +180,16 @@ char *create_final_response_from_string(http_response **response_ptr, char *fina
     strcat(final_response, response->status_message);
     strcat(final_response, CRLF);
 
-    size_t body_length = (body != NULL) ? strlen(body) : 0;
-    char body_length_string[20];
+    size_t body_length = (response->body != NULL) ? strlen(response->body) : 0;
+    char body_length_string[SIZE_T_STRING_SIZE];
 
     sprintf(body_length_string, "%lu", body_length);
-
-    // Create basic response headers (Content-Type and Content-Length and Connection)
-    response->http_response_headers = create_basic_response_headers("text/plain", body_length_string);
 
     http_response_header **curr_header = response->http_response_headers;
 
     // Append headers to the final response
-    while (*curr_header != NULL && (*curr_header)->name != NULL) {
+    while (*curr_header != NULL && (*curr_header)->name != NULL)
+    {
         strcat(final_response, (*curr_header)->name);
         strcat(final_response, ": ");
         strcat(final_response, (*curr_header)->value);
@@ -186,180 +203,179 @@ char *create_final_response_from_string(http_response **response_ptr, char *fina
 
     size_t response_length = (size_t)strlen(final_response) + body_length;
 
-    if (response_length > final_response_size + 1) {
-        final_response = (char *)realloc(final_response, (size_t)response_length + 1);
+    if (response_length >= final_response_size)
+    {
+        char *new_final_response = (char *)realloc(final_response, (size_t)response_length + 1);
 
-        if (final_response == NULL) {
-            if (LOGGING) perror("error in realloc final_response (create_final_response_from_string)");
+        if (new_final_response == NULL)
+        {
+            if (LOGGING)
+                perror("error in realloc final_response (create_final_response_from_string)");
 
             return NULL;
         }
+
+        final_response = new_final_response;
     }
 
     // Append body to the final response
-    strcat(final_response, body);
+    strcat(final_response, response->body);
 
     return final_response;
 }
 
 /**
- * Creates the final HTTP response string from the given http_response structure and file content.
- * @param response_ptr Pointer to the http_response structure.
- * @param final_response The buffer to store the final response string.
- * @param final_response_size The size of the final_response buffer.
- * @param file The file pointer to read the body content from.
- * @return The final response string, or NULL on error.
- * @attention Make sure the file is opened in read mode before calling this function and free response after use.
+ * Sends an error response to the client.
+ * @param client_socket The client socket descriptor.
+ * @param status_code The HTTP status code to send.
+ * @param custom_message Optional custom message to include in the response body.
+ * @return void
  */
-char *create_final_response_from_file(http_response **response_ptr, 
-                                    char *final_response, 
-                                    size_t final_response_size, 
-                                    FILE *file, 
-                                    char *file_name) {
-    if (response_ptr == NULL || *response_ptr == NULL) {
-        if (LOGGING) perror(RED"response is NULL in create_final_response_from_string"RESET);
+void send_error_response(int client_socket, int status_code, char *custom_message)
+{
+    if (client_socket < 0 || status_code < 100 || status_code > 599)
+    {
+        if (LOGGING)
+            perror(RED "Invalid client socket in send_error_response" RESET);
 
-        return NULL;
-    }
-    
-    http_response *response = *response_ptr;
-
-    char status_code_string[STATUS_CODE_SIZE];
-
-    // Start constructing the response line
-    // HTTP version
-    strcpy(final_response, "HTTP/1.1 ");
-
-    // Status code
-    sprintf(status_code_string, "%d ", response->status_code);
-    strcat(final_response, status_code_string);
-
-    // Status message
-    strcat(final_response, response->status_message);
-    strcat(final_response, CRLF);
-
-    size_t body_length = file_size(file);
-    char body_length_string[20];
-
-    // convert Body length to string
-    sprintf(body_length_string, "%lu", body_length);
-
-    char *content_type = extract_content_type_from_file(file_name);
-
-    response->http_response_headers = create_basic_response_headers(content_type, body_length_string);
-
-    char *body = (char *)malloc(body_length + 1);
-
-    if (body == NULL) {
-        if (LOGGING) perror(RED"error in malloc body (create_final_response_from_file)"RESET);
-        
-        return NULL;
+        return;
     }
 
-    body[0] = '\0';
+    http_response *response = (http_response *)malloc(sizeof(http_response));
+    response->status_code = status_code;
+    response->status_message = get_status_message(status_code);
+    response->http_response_headers = NULL;
+    response->body = NULL;
 
-    http_response_header **curr_header = response->http_response_headers;
+    if (response->status_message == NULL)
+    {
+        if (LOGGING)
+            perror(RED "Invalid status code in send_error_response" RESET);
 
-    // Append headers to the final response
-    while (*curr_header != NULL && (*curr_header)->name != NULL) {
-        strcat(final_response, (*curr_header)->name);
-        strcat(final_response, ": ");
-        strcat(final_response, (*curr_header)->value);
-        strcat(final_response, CRLF);
+        free_http_response(response);
 
-        curr_header++;
+        return;
     }
 
-    // End of headers
-    strcat(final_response, CRLF);
+    response->body = (char *)malloc(INITIAL_BODY_SIZE * sizeof(char));
 
-    size_t response_length = (size_t)strlen(final_response) + body_length;
+    if (custom_message != NULL)
+    {
+        response->body = custom_message;
 
-    if (response_length > final_response_size + 1) {
-        final_response = (char *)realloc(final_response, (size_t)response_length + 1);
+        char content_length[SIZE_T_STRING_SIZE];
 
-        if (final_response == NULL) {
-            if (LOGGING) perror(RED"error in realloc final_response (create_final_response_from_string)"RESET);
+        sprintf(content_length, "%lu", strlen(response->body));
 
-            return NULL;
+        response->http_response_headers = create_basic_response_headers("text/plain", content_length);
+    }
+    else
+    {
+        response->body = serve_error_file(status_code, &response->body, INITIAL_BODY_SIZE);
+
+        if (response->body == NULL)
+        {
+            if (LOGGING)
+                perror(RED "Failed to load default error file in send_error_response" RESET);
+
+            response->body = "<html><body><h1>Error</h1><p>An error occurred.</p></body></html>";
         }
+
+        char content_length[SIZE_T_STRING_SIZE];
+
+        sprintf(content_length, "%lu", strlen(response->body));
+
+        response->http_response_headers = create_basic_response_headers("text/html", content_length);
     }
 
-    // Read file content into body
-    size_t read_size = fread(body, 1, body_length, file);
+    char *final_response = (char *)malloc(INITIAL_RESPONSE_SIZE);
 
-    if (read_size != body_length) {
-        if (LOGGING) perror(RED"error in fread body (create_final_response_from_file)"RESET);
+    if (create_final_response(response, &final_response, INITIAL_RESPONSE_SIZE) == NULL)
+    {
+        if (LOGGING)
+            perror(RED "Failed to create final response in send_error_response" RESET);
 
-        x_free(body);
+        free_http_response(response);
+        final_response = x_free(final_response);
+
+        return;
+    }
+
+    ssize_t bytes_sent = send_tcp_response(client_socket, final_response);
+
+    if (bytes_sent < 0)
+    {
+        if (LOGGING)
+            perror(RED "Failed to send error response in send_error_response" RESET);
+    }
+    else
+    {
+        if (LOGGING)
+            printf(GREEN "Sent %ld bytes in error response\n" RESET, bytes_sent);
+    }
+
+    printf("Final response:\n%s\n", final_response);
+
+    free_http_response(response);
+    final_response = x_free(final_response);
+}
+
+/**
+ * Serves the error HTML file corresponding to the given status code.
+ * @param status_code The HTTP status code.
+ * @param buffer Pointer to the buffer where the file content will be stored.
+ * @param buffer_size The size of the buffer.
+ * @return Pointer to the buffer containing the file content, or NULL on failure.
+ */
+char *serve_error_file(int status_code, char **buffer, size_t buffer_size)
+{
+    if (status_code < 400 || status_code > 599 || buffer == NULL || buffer_size == 0)
+    {
+        if (LOGGING)
+            perror(RED "Invalid arguments in serve_error_file" RESET);
 
         return NULL;
     }
 
-    body[body_length] = '\0';
+    char file_path[PATH_MAX];
 
-    // finally, append body to the final response
-    strcat(final_response, body);
+    sprintf(file_path, "%s/%d.html", STATIC_FILES_PATH, status_code);
 
-    x_free(body);
+    if (read_text_file(file_path, buffer, buffer_size) == NULL)
+    {
+        if (LOGGING)
+            perror(RED "Failed to read error file in serve_error_file" RESET);
 
-    return final_response;
+        return NULL;
+    }
+
+    return *buffer;
 }
 
 /**
  * Frees the memory allocated for an http_response structure.
  * @param response Pointer to the http_response structure to free.
  */
-
-void *free_http_response(http_response *response) {
-    if (response ==NULL) {
+void *free_http_response(http_response *response)
+{
+    if (response == NULL)
+    {
         return NULL;
     }
-    
+
     http_response_header **curr_http_header = response->http_response_headers;
 
-    while (curr_http_header != NULL && *curr_http_header != NULL) {
+    while (curr_http_header != NULL && *curr_http_header != NULL)
+    {
         *curr_http_header = x_free(*curr_http_header);
         curr_http_header++;
     }
 
-    if (*curr_http_header != NULL) {
-        *curr_http_header = x_free(*curr_http_header);  // If sentinel is allocated, free it
-    }
-    
-    response->http_response_headers = x_free(response->http_response_headers);
+    if (response->http_response_headers != NULL)
+        response->http_response_headers = x_free(response->http_response_headers);
+
     response->body = x_free(response->body);
     response = x_free(response);
 
     return NULL;
-}
-
-/**
- * Validates an HTTP method.
- * @param method The HTTP method to validate.
- * @return 0 if valid, -1 otherwise.
- */
-bool validate_http_method(char *method) {
-    char *valid_methods[] = {"GET", "POST", "PUT", "DELETE", "HEAD", "OPTIONS", "PATCH", "TRACE", "CONNECT", NULL};
-
-    for (int i = 0; valid_methods[i] != NULL; i++) {
-        if (strcmp(method, valid_methods[i]) == 0) {
-            return TRUE;
-        }
-    }
-
-    return FALSE;
-}
-
-/**
- * Validates an HTTP version.
- * @param version The HTTP version to validate.
- * @return TRUE (1) if valid, FALSE (0) otherwise.
- */
-bool validate_http_version(char *version) {
-    if (strcmp(version, "HTTP/1.1") == 0) {
-        return TRUE;
-    }
-
-    return FALSE;
 }

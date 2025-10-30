@@ -1,0 +1,12 @@
+{
+  "name": "mar1server",
+  "version": "1.0.0",
+  "description": "Simple JSON configuration for mar1server",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "test": "echo \"No tests\" && exit 0"
+  },
+  "author": "mar1shell",
+  "license": "MIT"
+}
