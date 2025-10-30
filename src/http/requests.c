@@ -317,34 +317,31 @@ void print_request(http_request *parsed_request)
  * @param request The http_request struct to free.
  * @return 0 on success.
  */
-void *free_http_response(http_response *response)
+void free_http_request(http_request *request)
 {
-    if (response == NULL)
+    if (request == NULL)
     {
-        return NULL;
+        return;
     }
 
-    if (response->http_response_headers != NULL)
+    if (request->http_headers != NULL)
     {
-        http_response_header **curr_http_header = response->http_response_headers;
+        http_header **current_header = request->http_headers;
 
-        while (*curr_http_header != NULL)
+        while (*current_header != NULL)
         {
-            x_free(*curr_http_header);
-            curr_http_header++;
+            *current_header = x_free(*current_header);
+
+            current_header++;
         }
 
-        x_free(response->http_response_headers);
+        if (*current_header != NULL)
+            current_header = x_free(*current_header);
+
+        request->http_headers = x_free(request->http_headers);
     }
 
-    if (response->body != NULL)
-    {
-        x_free(response->body);
-    }
-
-    x_free(response);
-
-    return NULL;
+    request = x_free(request);
 }
 
 /**

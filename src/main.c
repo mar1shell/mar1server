@@ -3,6 +3,7 @@
 #include "../include/helpers.h"
 #include "../include/main.h"
 #include "../include/requests.h"
+#include "../include/responses.h"
 #include "../include/server.h"
 #include "../include/signals.h"
 #include "../include/http_status.h"
