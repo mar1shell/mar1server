@@ -17,6 +17,9 @@ void printWelcomeBanner()
                    "Server is starting up...\n" RESET);
 }
 
+/**
+ * Prints the goodbye banner to the console.
+ */
 void printGoodbyeBanner()
 {
     printf(GREEN "███╗   ███╗ █████╗ ██████╗  ██╗███████╗███████╗██████╗ ██╗   ██╗███████╗██████╗ \n"

@@ -10,9 +10,11 @@ const http_response_status http_status_map[] = {
     {HTTP_BAD_REQUEST, "Bad Request"},
     {HTTP_NOT_FOUND, "Not Found"},
     {HTTP_METHOD_NOT_ALLOWED, "Method Not Allowed"},
+    {HTTP_REQUEST_TIMEOUT, "Request Timeout"},
     {HTTP_PAYLOAD_TOO_LARGE, "Payload Too Large"},
     {HTTP_INTERNAL_SERVER_ERROR, "Internal Server Error"},
     {HTTP_NOT_IMPLEMENTED, "Not Implemented"},
+    {HTTP_SERVICE_UNAVAILABLE, "Service Unavailable"},
     {0, NULL} // Terminator (end of the list)
 };
 
@@ -102,14 +104,13 @@ http_response_header **create_basic_response_headers(char *content_type, char *c
         return NULL;
     }
 
-    char *names[] = {"Content-Type", "Content-Length", "Connection", NULL};
-    char *values[] = {content_type, content_length, "close", NULL};
+    char *names[] = {"Content-Type", "Content-Length", "Connection", "Server", NULL};
+    char *values[] = {content_type, content_length, "close", "mar1server/0.1", NULL};
 
-    for (int i = 0; i < 3; i++)
+    for (int i = 0; i < 4; i++)
     {
         response_headers[i] = (http_response_header *)malloc(sizeof(http_response_header));
 
-        // TODO
         if (response_headers[i] == NULL)
         {
             if (LOGGING)
@@ -129,7 +130,7 @@ http_response_header **create_basic_response_headers(char *content_type, char *c
         response_headers[i]->value = values[i];
     }
 
-    response_headers[3] = NULL;
+    response_headers[4] = NULL;
 
     return response_headers;
 }
@@ -170,36 +171,36 @@ char *create_final_response(http_response *response, char **final_response_ptr, 
 
     // Start constructing the response line
     // HTTP version
-    strcpy(final_response, "HTTP/1.1 ");
+    strncpy(final_response, "HTTP/1.1 ", strlen("HTTP/1.1 ") + 1);
 
     // Status code
-    sprintf(status_code_string, "%d ", response->status_code);
-    strcat(final_response, status_code_string);
+    snprintf(status_code_string, sizeof(status_code_string), "%d ", response->status_code);
+    strncat(final_response, status_code_string, final_response_size - strlen(final_response) - 1);
 
     // Status message
-    strcat(final_response, response->status_message);
-    strcat(final_response, CRLF);
+    strncat(final_response, response->status_message, final_response_size - strlen(final_response) - 1);
+    strncat(final_response, CRLF, final_response_size - strlen(final_response) - 1);
 
     size_t body_length = (response->body != NULL) ? strlen(response->body) : 0;
     char body_length_string[SIZE_T_STRING_SIZE];
 
-    sprintf(body_length_string, "%lu", body_length);
+    snprintf(body_length_string, sizeof(body_length_string), "%lu", body_length);
 
     http_response_header **curr_header = response->http_response_headers;
 
     // Append headers to the final response
     while (*curr_header != NULL && (*curr_header)->name != NULL)
     {
-        strcat(final_response, (*curr_header)->name);
-        strcat(final_response, ": ");
-        strcat(final_response, (*curr_header)->value);
-        strcat(final_response, CRLF);
+        strncat(final_response, (*curr_header)->name, final_response_size - strlen(final_response) - 1);
+        strncat(final_response, ": ", final_response_size - strlen(final_response) - 1);
+        strncat(final_response, (*curr_header)->value, final_response_size - strlen(final_response) - 1);
+        strncat(final_response, CRLF, final_response_size - strlen(final_response) - 1);
 
         curr_header++;
     }
 
     // End of headers
-    strcat(final_response, CRLF);
+    strncat(final_response, CRLF, final_response_size - strlen(final_response) - 1);
 
     size_t response_length = (size_t)strlen(final_response) + body_length;
 
@@ -219,7 +220,7 @@ char *create_final_response(http_response *response, char **final_response_ptr, 
     }
 
     // Append body to the final response
-    strcat(final_response, response->body);
+    strncat(final_response, response->body, final_response_size - strlen(final_response) - 1);
 
     return final_response;
 }
@@ -257,20 +258,22 @@ void send_error_response(int client_socket, int status_code, char *custom_messag
         return;
     }
 
-    response->body = (char *)malloc(INITIAL_BODY_SIZE * sizeof(char));
-
     if (custom_message != NULL)
     {
-        response->body = custom_message;
-
         char content_length[SIZE_T_STRING_SIZE];
 
-        sprintf(content_length, "%lu", strlen(response->body));
+        response->body = (char *)malloc((strlen(custom_message) + 1) * sizeof(char));
+
+        strcpy(response->body, custom_message);
+
+        snprintf(content_length, sizeof(content_length), "%lu", strlen(response->body));
 
         response->http_response_headers = create_basic_response_headers("text/plain", content_length);
     }
     else
     {
+        response->body = (char *)malloc(INITIAL_BODY_SIZE * sizeof(char));
+
         response->body = serve_error_file(status_code, &response->body, INITIAL_BODY_SIZE);
 
         if (response->body == NULL)
@@ -283,7 +286,7 @@ void send_error_response(int client_socket, int status_code, char *custom_messag
 
         char content_length[SIZE_T_STRING_SIZE];
 
-        sprintf(content_length, "%lu", strlen(response->body));
+        snprintf(content_length, sizeof(content_length), "%lu", strlen(response->body));
 
         response->http_response_headers = create_basic_response_headers("text/html", content_length);
     }
@@ -314,8 +317,6 @@ void send_error_response(int client_socket, int status_code, char *custom_messag
             printf(GREEN "Sent %ld bytes in error response\n" RESET, bytes_sent);
     }
 
-    printf("Final response:\n%s\n", final_response);
-
     free_http_response(response);
     final_response = x_free(final_response);
 }
@@ -339,7 +340,7 @@ char *serve_error_file(int status_code, char **buffer, size_t buffer_size)
 
     char file_path[PATH_MAX];
 
-    sprintf(file_path, "%s/%d.html", STATIC_FILES_PATH, status_code);
+    snprintf(file_path, sizeof(file_path), "%s/%d.html", STATIC_FILES_PATH, status_code);
 
     if (read_text_file(file_path, buffer, buffer_size) == NULL)
     {

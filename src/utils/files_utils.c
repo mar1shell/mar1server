@@ -20,13 +20,16 @@ mime_type mime_types[] = {
 /**
  * Safely close a file pointer.
  * @param file The file pointer to close.
+ * @return 0 on success, -1 if the file pointer is NULL.
  */
-void x_fclose(FILE *file)
+int x_fclose(FILE *file)
 {
     if (file != NULL)
     {
-        fclose(file);
+        return fclose(file);
     }
+
+    return -1;
 }
 
 /**
@@ -63,7 +66,7 @@ char *extract_content_type_from_file(char *file_name)
 
     mime_type *curr_mime = mime_types;
 
-    while (curr_mime != NULL || curr_mime->type != NULL)
+    while (curr_mime != NULL && curr_mime->type != NULL)
     {
         if (strstr(file_name, curr_mime->extension) == 0)
         {
@@ -72,8 +75,6 @@ char *extract_content_type_from_file(char *file_name)
 
         curr_mime++;
     }
-
-    curr_mime = mime_types;
 
     return "text/plain";
 }
@@ -85,15 +86,13 @@ char *extract_content_type_from_file(char *file_name)
  */
 x_bool is_path_safe(char *path)
 {
+    char static_files_path[PATH_MAX];
     char resolved_path[PATH_MAX];
     char base_path[PATH_MAX];
-    char static_files_path[PATH_MAX];
 
-    strcpy(static_files_path, STATIC_FILES_PATH);
-    strcpy(base_path, static_files_path);
-    strcat(base_path, path);
-
-    printf("Base Path: %s\n", base_path);
+    strncpy(static_files_path, STATIC_FILES_PATH, PATH_MAX);
+    strncpy(base_path, static_files_path, PATH_MAX);
+    strncat(base_path, path, PATH_MAX - strlen(base_path) - 1);
 
     realpath(base_path, resolved_path);
 
@@ -101,7 +100,7 @@ x_bool is_path_safe(char *path)
     {
         if (LOGGING)
             perror(RED "Unsafe file path detected" RESET);
-        printf("Resolved Path: %s\n", resolved_path);
+
         return FALSE;
     }
 
@@ -137,8 +136,7 @@ char *read_text_file(const char *file_path, char **buffer_ptr, size_t buffer_siz
         return NULL;
     }
 
-    size_t total_read = 0;
-    size_t bytes_read;
+    size_t bytes_read, total_read = 0;
 
     while ((bytes_read = fread(buffer + total_read, 1, buffer_size - total_read, file)) > 0)
     {
@@ -147,6 +145,7 @@ char *read_text_file(const char *file_path, char **buffer_ptr, size_t buffer_siz
         if (total_read + 1 >= buffer_size)
         {
             size_t new_size = buffer_size * 2;
+
             char *new_buffer = realloc(buffer, new_size);
 
             if (new_buffer == NULL)
@@ -169,10 +168,16 @@ char *read_text_file(const char *file_path, char **buffer_ptr, size_t buffer_siz
         if (LOGGING)
             fprintf(stderr, RED "Error: Failed to read file '%s'.\n" RESET, file_path);
 
+        x_fclose(file);
+
         return NULL;
     }
 
     buffer[total_read] = '\0';
+
+    *buffer_ptr = buffer;
+
+    x_fclose(file);
 
     return buffer;
 }

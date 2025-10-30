@@ -95,7 +95,7 @@ x_bool get_controller(int client_socket, http_request *request)
 
     char content_length[SIZE_T_STRING_SIZE];
 
-    sprintf(content_length, "%lu", strlen(response->body));
+    snprintf(content_length, sizeof(content_length), "%lu", strlen(response->body));
 
     response->http_response_headers = create_basic_response_headers(content_type, content_length);
 
@@ -107,7 +107,6 @@ x_bool get_controller(int client_socket, http_request *request)
             perror(RED "Failed to allocate memory for final response in get_controller" RESET);
 
         free_http_response(response);
-
         send_error_response(client_socket, HTTP_INTERNAL_SERVER_ERROR, NULL);
 
         return TRUE;
@@ -150,7 +149,7 @@ x_bool handle_request(int client_socket, http_request *request)
         return FALSE;
     }
 
-    if (request->method != NULL && strcasecmp(request->method, "GET") == 0)
+    if (request->method != NULL && strcmp(request->method, "GET") == 0)
     {
         return get_controller(client_socket, request);
     }

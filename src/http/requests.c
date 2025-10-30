@@ -221,6 +221,22 @@ http_request *parse_http_request(int client_socket, char *request)
     }
 
     http_header **current_header = NULL;
+
+    char *host_header = get_header_value(parsed_request->http_headers, "Host");
+
+    // Check if Host header is present, as required by HTTP/1.1
+    if (host_header == NULL)
+    {
+        if (LOGGING)
+            perror(RED "Missing Host header in request" RESET);
+
+        send_error_response(client_socket, HTTP_BAD_REQUEST, "Bad Request: Missing Host header");
+
+        free_http_request(parsed_request);
+
+        return NULL;
+    }
+
     int header_count = 0;
 
     current_header = parsed_request->http_headers;
@@ -301,31 +317,34 @@ void print_request(http_request *parsed_request)
  * @param request The http_request struct to free.
  * @return 0 on success.
  */
-void free_http_request(http_request *request)
+void *free_http_response(http_response *response)
 {
-    if (request == NULL)
+    if (response == NULL)
     {
-        return;
+        return NULL;
     }
 
-    if (request->http_headers != NULL)
+    if (response->http_response_headers != NULL)
     {
-        http_header **current_header = request->http_headers;
+        http_response_header **curr_http_header = response->http_response_headers;
 
-        while (*current_header != NULL)
+        while (*curr_http_header != NULL)
         {
-            *current_header = x_free(*current_header);
-
-            current_header++;
+            x_free(*curr_http_header);
+            curr_http_header++;
         }
 
-        if (*current_header != NULL)
-            current_header = x_free(*current_header);
-
-        request->http_headers = x_free(request->http_headers);
+        x_free(response->http_response_headers);
     }
 
-    request = x_free(request);
+    if (response->body != NULL)
+    {
+        x_free(response->body);
+    }
+
+    x_free(response);
+
+    return NULL;
 }
 
 /**

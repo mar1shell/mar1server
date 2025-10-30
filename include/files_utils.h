@@ -17,6 +17,6 @@ char *read_text_file(const char *file_path, char **buffer_ptr, size_t buffer_siz
 char *extract_content_type_from_file(char *file_name);
 size_t file_size(FILE *file);
 x_bool is_path_safe(char *path);
-void x_fclose(FILE *file);
+int x_fclose(FILE *file);
 
 #endif // FILES_UTILS

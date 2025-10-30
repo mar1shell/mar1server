@@ -5,6 +5,7 @@
 #include "../include/requests.h"
 #include "../include/server.h"
 #include "../include/signals.h"
+#include "../include/http_status.h"
 
 /**
  * Main function to start the HTTP server.
@@ -53,8 +54,8 @@ int main(int argc, char const *argv[])
         return 1;
     }
 
-    int client_socket;
     struct sockaddr_in client_address;
+    int client_socket;
 
     while (!g_shutdown_flag)
     {
@@ -67,6 +68,9 @@ int main(int argc, char const *argv[])
         {
             if (errno == EINTR && g_shutdown_flag)
             {
+
+                printf(BLUE "##############################################################\n" RESET);
+
                 break;
             }
 
@@ -94,6 +98,9 @@ int main(int argc, char const *argv[])
         // child process
         if (pid == 0)
         {
+            close(server->socket);
+            server = x_free(server);
+
             signal(SIGINT, SIG_IGN);
 
             char *request = (char *)malloc(MAX_REQUEST_SIZE);
@@ -112,13 +119,31 @@ int main(int argc, char const *argv[])
                 exit(1);
             }
 
+            struct timeval timeout;
+            timeout.tv_sec = 30; // 30 second timeout
+            timeout.tv_usec = 0;
+
+            if (setsockopt(client_socket, SOL_SOCKET, SO_RCVTIMEO,
+                           &timeout, sizeof(timeout)) < 0)
+            {
+                perror(RED "setsockopt failed" RESET);
+            }
+
             ssize_t bytes_received;
 
-            bytes_received = recv(client_socket, request, MAX_REQUEST_SIZE, 0);
+            bytes_received = recv(client_socket, request, MAX_REQUEST_SIZE - 1, 0);
 
             if (bytes_received < 0)
             {
-                if (LOGGING)
+
+                if (errno == EWOULDBLOCK || errno == EAGAIN)
+                {
+                    if (LOGGING)
+                        fprintf(stderr, YELLOW "recv timeout\n" RESET);
+
+                    send_error_response(client_socket, HTTP_REQUEST_TIMEOUT, "Request Timeout");
+                }
+                else if (LOGGING)
                     perror(RED "error in recv" RESET);
 
                 close(client_socket);
@@ -145,7 +170,7 @@ int main(int argc, char const *argv[])
             if (status < 0)
             {
                 if (LOGGING)
-                    perror(RED "error in handling request" RESET);
+                    perror(YELLOW "error in handling request" RESET);
             }
             else
             {
@@ -156,8 +181,6 @@ int main(int argc, char const *argv[])
             // cleanup
             free_http_request(parsed_request);
             close(client_socket);
-            close(server->socket);
-            server = x_free(server);
 
             printf(B_BLUE "##############################################################\n" RESET);
 
@@ -172,7 +195,6 @@ int main(int argc, char const *argv[])
         }
     }
 
-    printf(BLUE "##############################################################\n" RESET);
     printf(B_WHITE "Shutting down the mar1server...\n\n" RESET);
 
     signal(SIGTERM, SIG_IGN);
