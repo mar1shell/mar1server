@@ -148,7 +148,7 @@ http_request *parse_http_request(int client_socket, char *request)
     char *state = NULL;
     char *line = NULL;
 
-    line = __strtok_r(request, CRLF, &state);
+    line = strtok_r(request, CRLF, &state);
 
     parsed_request->method = strtok(line, " ");
 
@@ -204,7 +204,7 @@ http_request *parse_http_request(int client_socket, char *request)
         return NULL;
     }
 
-    line = __strtok_r(NULL, CRLF, &state);
+    line = strtok_r(NULL, CRLF, &state);
 
     parsed_request->http_headers = (http_header **)malloc(sizeof(http_header *) * MAX_HEADERS);
 
@@ -255,7 +255,7 @@ http_request *parse_http_request(int client_socket, char *request)
             return NULL;
         }
 
-        line = __strtok_r(NULL, CRLF, &state);
+        line = strtok_r(NULL, CRLF, &state);
 
         current_header++;
         header_count++;

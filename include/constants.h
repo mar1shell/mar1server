@@ -27,7 +27,7 @@ typedef unsigned char x_bool;
 #define MAX_RESPONSE_SIZE 1146880   // 1.1 MB
 #define MAX_BODY_SIZE 1048576       // 1 MB
 
-#define STATIC_FILES_PATH "/home/mar1shell/Github/mar1server/www"
+#define STATIC_FILES_PATH "/app/www"
 
 #define SIZE_T_STRING_SIZE 21 // Maximum length for size_t string representation
 

@@ -4,6 +4,7 @@
 #include "../include/main.h"
 #include "../include/requests.h"
 #include "../include/server.h"
+#include "../include/signals.h"
 
 /**
  * Main function to start the HTTP server.
@@ -16,6 +17,9 @@ int main(int argc, char const *argv[])
     // TODO: add config files, and also validate files like 404 and index.html existence
 
     printWelcomeBanner();
+
+    setup_signal_handler(SIGINT, handle_sigint);
+    setup_signal_handler(SIGTERM, handle_sigterm);
 
     if (argc > 2)
     {
@@ -52,7 +56,7 @@ int main(int argc, char const *argv[])
     int client_socket;
     struct sockaddr_in client_address;
 
-    while (TRUE)
+    while (!g_shutdown_flag)
     {
         // accept a client connection and receive data
         client_socket = accept_connection(server->socket, &client_address);
@@ -61,6 +65,11 @@ int main(int argc, char const *argv[])
 
         if (client_socket < 0)
         {
+            if (errno == EINTR && g_shutdown_flag)
+            {
+                break;
+            }
+
             if (LOGGING)
                 perror(RED "error in accept" RESET);
 
@@ -85,6 +94,8 @@ int main(int argc, char const *argv[])
         // child process
         if (pid == 0)
         {
+            signal(SIGINT, SIG_IGN);
+
             char *request = (char *)malloc(MAX_REQUEST_SIZE);
 
             if (request == NULL)
@@ -160,6 +171,18 @@ int main(int argc, char const *argv[])
             waitpid(pid, NULL, WNOHANG);
         }
     }
+
+    printf(BLUE "##############################################################\n" RESET);
+    printf(B_WHITE "Shutting down the mar1server...\n\n" RESET);
+
+    signal(SIGTERM, SIG_IGN);
+    killpg(0, SIGTERM);
+    signal(SIGTERM, handle_sigterm);
+
+    while (waitpid(-1, NULL, WNOHANG) > 0)
+        ; // wait for all child processes
+
+    printGoodbyeBanner();
 
     // cleanup
     close(server->socket);

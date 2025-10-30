@@ -1,0 +1,11 @@
+# Ignore build artifacts
+bin/
+obj/
+
+# Ignore .git
+.git
+.gitignore
+
+# Ignore the Dockerfile itself
+Dockerfile
+.dockerignore
