@@ -222,21 +222,6 @@ http_request *parse_http_request(int client_socket, char *request)
 
     http_header **current_header = NULL;
 
-    char *host_header = get_header_value(parsed_request->http_headers, "Host");
-
-    // Check if Host header is present, as required by HTTP/1.1
-    if (host_header == NULL)
-    {
-        if (LOGGING)
-            perror(RED "Missing Host header in request" RESET);
-
-        send_error_response(client_socket, HTTP_BAD_REQUEST, "Bad Request: Missing Host header");
-
-        free_http_request(parsed_request);
-
-        return NULL;
-    }
-
     int header_count = 0;
 
     current_header = parsed_request->http_headers;
@@ -278,6 +263,21 @@ http_request *parse_http_request(int client_socket, char *request)
     }
 
     *current_header = NULL;
+
+    char *host_header = get_header_value(parsed_request->http_headers, "Host");
+
+    // Check if Host header is present, as required by HTTP/1.1
+    if (host_header == NULL)
+    {
+        if (LOGGING)
+            perror(RED "Missing Host header in request" RESET);
+
+        send_error_response(client_socket, HTTP_BAD_REQUEST, "Bad Request: Missing Host header");
+
+        free_http_request(parsed_request);
+
+        return NULL;
+    }
 
     parsed_request->body = parse_http_body(body_delimiter + BODY_DELIM_LENGTH);
 
